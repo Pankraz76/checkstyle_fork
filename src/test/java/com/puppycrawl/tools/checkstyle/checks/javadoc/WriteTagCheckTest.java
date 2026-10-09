@@ -133,6 +133,17 @@ public class WriteTagCheckTest extends AbstractModuleTestSupport {
     }
 
     @Test
+    public void testEnumConstantWithoutJavadoc() throws Exception {
+        final String[] expected = {
+            "17: " + getCheckMessage(MSG_WRITE_TAG, "@incomplete",
+                "This enum constant needs more code..."),
+        };
+        verifyWithInlineConfigParserTwice(
+                getPath("InputWriteTagEnumConstantWithoutJavadoc.java"), expected
+        );
+    }
+
+    @Test
     public void testBlockComment() throws Exception {
         final String[] expected = CommonUtil.EMPTY_STRING_ARRAY;
         verifyWithInlineConfigParserTwice(
