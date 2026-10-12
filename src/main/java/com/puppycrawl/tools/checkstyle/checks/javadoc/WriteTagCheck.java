@@ -172,11 +172,14 @@ public class WriteTagCheck
         // Prefer Javadoc directly above the node
         DetailAST cmt = ast.findFirstToken(TokenTypes.BLOCK_COMMENT_BEGIN);
         if (cmt == null) {
-            // Check MODIFIERS and TYPE block for comments
+            // Check MODIFIERS and TYPE block for comments,
+            // ENUM_CONSTANT_DEF has neither of them
             final DetailAST modifiers = ast.findFirstToken(TokenTypes.MODIFIERS);
             final DetailAST type = ast.findFirstToken(TokenTypes.TYPE);
 
-            cmt = modifiers.findFirstToken(TokenTypes.BLOCK_COMMENT_BEGIN);
+            if (modifiers != null) {
+                cmt = modifiers.findFirstToken(TokenTypes.BLOCK_COMMENT_BEGIN);
+            }
             if (cmt == null && type != null) {
                 cmt = type.findFirstToken(TokenTypes.BLOCK_COMMENT_BEGIN);
             }
