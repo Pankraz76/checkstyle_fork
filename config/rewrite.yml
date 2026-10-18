@@ -245,8 +245,12 @@ recipeList:
   - org.openrewrite.staticanalysis.RemoveUnusedPrivateFields
   - org.openrewrite.staticanalysis.RemoveUnusedPrivateMethods
   - org.openrewrite.staticanalysis.ReplaceLambdaWithMethodReference
+  # autofix for IllegalTypeCheck (StringBuffer) and error-prone JdkObsolete
+  - org.openrewrite.staticanalysis.ReplaceStringBufferWithStringBuilder
   - org.openrewrite.staticanalysis.SimplifyTernaryRecipes
   - org.openrewrite.staticanalysis.URLEqualsHashCodeRecipes
   - org.openrewrite.staticanalysis.UnnecessaryCloseInTryWithResources
   - org.openrewrite.staticanalysis.UnnecessaryReturnAsLastStatement
+  # autofix for IllegalTypeCheck (HashMap, HashSet, TreeMap, ... as declared types)
+  - org.openrewrite.staticanalysis.UseCollectionInterfaces
   - org.openrewrite.staticanalysis.UseLambdaForFunctionalInterface
