@@ -88,4 +88,11 @@ public class InputCommentsIndentationPreviousStatementTwo {
             return 0;
         }
     }
+
+    void blockCommentFirst() {
+        /*
+         * block comment as the first statement
+         */
+        for (;;) { } // trailing comment in loop
+    }
 }

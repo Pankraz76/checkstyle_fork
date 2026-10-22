@@ -19,13 +19,17 @@
 
 package com.puppycrawl.tools.checkstyle.checks.indentation;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Locale;
 import java.util.Map;
+import java.util.stream.LongStream;
 
 import com.puppycrawl.tools.checkstyle.FileStatefulCheck;
 import com.puppycrawl.tools.checkstyle.api.AbstractCheck;
@@ -593,7 +597,7 @@ public class CommentsIndentationCheck extends AbstractCheck {
         DetailAST previousStatement = null;
         if (root != null) {
             if (previousStatementIndex == null) {
-                previousStatementIndex = new PreviousStatementIndex(fileRootAst);
+                previousStatementIndex = new PreviousStatementIndex(fileRootAst, this);
             }
             final int start = previousStatementIndex.getIndex(root);
             final int end = previousStatementIndex.getTraverseEnd(root);
@@ -601,8 +605,11 @@ public class CommentsIndentationCheck extends AbstractCheck {
             final int lineCandidate =
                 previousStatementIndex.getFirstLineCandidate(start, commentLineNo - 1);
             int nodeNotAbove = previousStatementIndex.getFirstNodeNotAbove(start, commentLineNo);
+            // the comment is on a non-empty line, which is not counted for the comment
+            final int chainKey = getNonEmptyLinesNumber(commentLineNo) - 1;
+            final long[] runCandidates = previousStatementIndex.getRunCandidates(comment);
             int candidate = Math.min(Math.min(lineCandidate, nodeNotAbove),
-                previousStatementIndex.getNextCommentCandidate(start));
+                previousStatementIndex.getNextCommentCandidate(runCandidates, start, chainKey));
             while (previousStatement == null && candidate < end) {
                 previousStatement =
                     findPreviousStatement(comment, previousStatementIndex.getNode(candidate));
@@ -612,7 +619,8 @@ public class CommentsIndentationCheck extends AbstractCheck {
                     nodeNotAbove = end;
                 }
                 candidate = Math.min(Math.min(lineCandidate, nodeNotAbove),
-                    previousStatementIndex.getNextCommentCandidate(candidate + 1));
+                    previousStatementIndex.getNextCommentCandidate(
+                        runCandidates, candidate + 1, chainKey));
             }
         }
         return previousStatement;
@@ -737,6 +745,29 @@ public class CommentsIndentationCheck extends AbstractCheck {
      * @return the number of empty lines between statements.
      */
     private int countEmptyLines(DetailAST startStatement, DetailAST endStatement) {
+        final int[] emptyLines = getEmptyLinesBefore();
+        // no lines are counted if the end statement is above the start statement
+        return Math.max(0, emptyLines[endStatement.getLineNo()]
+            - emptyLines[startStatement.getLineNo()]);
+    }
+
+    /**
+     * Gets the number of non-empty lines among the first lines of the current file.
+     *
+     * @param lineNo number of the first lines.
+     * @return the number of non-empty lines.
+     */
+    private int getNonEmptyLinesNumber(int lineNo) {
+        return lineNo - getEmptyLinesBefore()[lineNo];
+    }
+
+    /**
+     * Gets numbers of empty lines before each line of the current file, the element with
+     * index {@code n} is the number of empty lines among the first {@code n} lines.
+     *
+     * @return numbers of empty lines before each line.
+     */
+    private int[] getEmptyLinesBefore() {
         if (emptyLinesBefore == null) {
             final String[] lines = getLines();
             emptyLinesBefore = new int[lines.length + 1];
@@ -748,9 +779,7 @@ public class CommentsIndentationCheck extends AbstractCheck {
                 emptyLinesBefore[lineNo + 1] = emptyLinesNumber;
             }
         }
-        // no lines are counted if the end statement is above the start statement
-        return Math.max(0, emptyLinesBefore[endStatement.getLineNo()]
-            - emptyLinesBefore[startStatement.getLineNo()]);
+        return emptyLinesBefore;
     }
 
     /**
@@ -1005,8 +1034,19 @@ public class CommentsIndentationCheck extends AbstractCheck {
      * switch block does not depend on the node;</li>
      * <li>a node whose token which begins the line is on the line just above the comment,
      * when the token is not followed by a comment;</li>
-     * <li>a node whose token which begins the line is followed by a comment.</li>
+     * <li>a node whose token which begins the line is followed by a run of comments which
+     * contains the comment;</li>
+     * <li>a node whose token which begins the line is followed by a run of comments which
+     * does not contain the comment, when the number of non-empty lines between the token and
+     * the comment is the number of lines of the run, that is, the chain key of the node
+     * equals the chain key of the comment.</li>
      * </ul>
+     *
+     * <p>
+     * The chain key of a node is the number of non-empty lines up to its token which begins
+     * the line plus the number of lines of the run of comments following the token.
+     * The chain key of a comment is the number of non-empty lines before it.
+     * </p>
      *
      * <p>
      * Candidates are kept in sorted arrays as odd numbers {@code 2 * index + 1}, so a binary
@@ -1025,6 +1065,9 @@ public class CommentsIndentationCheck extends AbstractCheck {
         /** Encoded index which is greater than encoded index of any node. */
         private static final long SENTINEL_INDEX = encode(Integer.MAX_VALUE);
 
+        /** Run candidates of a comment whose run does not follow any node. */
+        private static final long[] EMPTY_RUN_CANDIDATES = {SENTINEL_INDEX};
+
         /** Nodes in pre-order. */
         private final PreOrderNode[] nodes;
 
@@ -1038,23 +1081,36 @@ public class CommentsIndentationCheck extends AbstractCheck {
         private final long[] lineCandidates;
 
         /**
-         * Encoded indexes of the nodes whose token which begins the line is followed by
-         * a comment, sorted.
+         * Nodes whose token which begins the line is followed by a comment, as chain key
+         * in the high bits and encoded index of the node in the low bits, sorted.
          */
-        private final long[] commentCandidates;
+        private final long[] chainCandidates;
+
+        /**
+         * Encoded indexes of the nodes whose token which begins the line is followed by
+         * a comment, sorted and ended with the sentinel, by the first comment of the run.
+         */
+        private final Map<DetailAST, long[]> runCandidates = new HashMap<>();
+
+        /** The first comment of the run of comments, by the comment. */
+        private final Map<DetailAST, DetailAST> runStarts = new HashMap<>();
 
         /**
          * Creates the index.
          *
          * @param rootAst root of the AST of a file.
+         * @param check the check which provides lines of the file and tokens which follow
+         *     statements.
          */
-        private PreviousStatementIndex(DetailAST rootAst) {
+        private PreviousStatementIndex(DetailAST rootAst, CommentsIndentationCheck check) {
             final List<DetailAST> preOrder = getPreOrder(rootAst);
+            collectRunStarts(preOrder);
             nodes = new PreOrderNode[preOrder.size()];
             final long[] lineCandidatesBuffer = new long[nodes.length];
             int lineCandidatesCount = 0;
-            final long[] commentCandidatesBuffer = new long[nodes.length];
-            int commentCandidatesStart = nodes.length;
+            final long[] chainCandidatesBuffer = new long[nodes.length];
+            int chainCandidatesCount = 0;
+            final Map<DetailAST, Deque<Long>> runCandidatesLists = new HashMap<>();
             final ListIterator<DetailAST> iterator = preOrder.listIterator(nodes.length);
             while (iterator.hasPrevious()) {
                 final int index = iterator.previousIndex();
@@ -1062,25 +1118,95 @@ public class CommentsIndentationCheck extends AbstractCheck {
                 nodes[index] = createPreOrderNode(node, index);
                 final DetailAST tokenWhichBeginsTheLine = getTokenWhichBeginsTheLine(node);
                 if (tokenWhichBeginsTheLine != null && !isComment(tokenWhichBeginsTheLine)) {
-                    final DetailAST followingToken = getFollowingToken(tokenWhichBeginsTheLine);
-                    if (followingToken != null && isComment(followingToken)) {
-                        commentCandidatesStart--;
-                        commentCandidatesBuffer[commentCandidatesStart] = encode(index);
+                    final int lineNo = tokenWhichBeginsTheLine.getLineNo();
+                    final DetailAST nextToken = check.getNextToken(tokenWhichBeginsTheLine);
+                    if (nextToken != null && isComment(nextToken)) {
+                        chainCandidatesBuffer[chainCandidatesCount] = encodeLineCandidate(
+                            check.getNonEmptyLinesNumber(lineNo)
+                                + getCommentLinesNumber(nextToken),
+                            encode(index));
+                        chainCandidatesCount++;
+                        // nodes are visited backwards, so adding to the front keeps the order
+                        runCandidatesLists.computeIfAbsent(
+                            getFollowingToken(tokenWhichBeginsTheLine), key -> new ArrayDeque<>())
+                            .addFirst(encode(index));
                     }
                     else {
-                        lineCandidatesBuffer[lineCandidatesCount] = encodeLineCandidate(
-                            tokenWhichBeginsTheLine.getLineNo(), encode(index));
+                        lineCandidatesBuffer[lineCandidatesCount] =
+                            encodeLineCandidate(lineNo, encode(index));
                         lineCandidatesCount++;
                     }
                 }
             }
-            lineCandidates = Arrays.copyOf(lineCandidatesBuffer, lineCandidatesCount + 1);
-            lineCandidates[lineCandidatesCount] =
-                encodeLineCandidate(Integer.MAX_VALUE, SENTINEL_INDEX);
-            Arrays.sort(lineCandidates);
-            commentCandidates = Arrays.copyOfRange(commentCandidatesBuffer,
-                commentCandidatesStart, nodes.length + 1);
-            commentCandidates[nodes.length - commentCandidatesStart] = SENTINEL_INDEX;
+            lineCandidates = toSortedCandidates(lineCandidatesBuffer, lineCandidatesCount);
+            chainCandidates = toSortedCandidates(chainCandidatesBuffer, chainCandidatesCount);
+            runCandidatesLists.forEach((runStart, candidates) -> {
+                runCandidates.put(runStart, toRunCandidates(candidates));
+            });
+        }
+
+        /**
+         * Collects the first comment of the run of comments for every comment.
+         *
+         * @param preOrder nodes in pre-order.
+         */
+        private void collectRunStarts(List<DetailAST> preOrder) {
+            for (DetailAST node : preOrder) {
+                if (isComment(node)) {
+                    final DetailAST previous = node.getPreviousSibling();
+                    DetailAST runStart = node;
+                    if (previous != null && isComment(previous)) {
+                        runStart = runStarts.get(previous);
+                    }
+                    runStarts.put(node, runStart);
+                }
+            }
+        }
+
+        /**
+         * Counts lines of the comments from the comment to the end of its run as
+         * {@code isOnPreviousLineIgnoringComments} counts them when the run does not contain
+         * the checked comment.
+         *
+         * @param startComment the comment to start counting from.
+         * @return the number of lines.
+         */
+        private static int getCommentLinesNumber(DetailAST startComment) {
+            int linesNumber = 0;
+            DetailAST comment = startComment;
+            while (comment != null && isComment(comment)) {
+                if (comment.getType() == TokenTypes.BLOCK_COMMENT_BEGIN) {
+                    linesNumber += comment.getLastChild().getLineNo() - comment.getLineNo();
+                }
+                linesNumber++;
+                comment = comment.getNextSibling();
+            }
+            return linesNumber;
+        }
+
+        /**
+         * Copies candidates, adds the sentinel and sorts them.
+         *
+         * @param buffer the candidates.
+         * @param count number of the candidates in the buffer.
+         * @return sorted candidates ended with the sentinel.
+         */
+        private static long[] toSortedCandidates(long[] buffer, int count) {
+            final long[] candidates = Arrays.copyOf(buffer, count + 1);
+            candidates[count] = encodeLineCandidate(Integer.MAX_VALUE, SENTINEL_INDEX);
+            Arrays.sort(candidates);
+            return candidates;
+        }
+
+        /**
+         * Copies sorted encoded indexes and adds the sentinel.
+         *
+         * @param encodedIndexes the encoded indexes, sorted.
+         * @return the encoded indexes ended with the sentinel.
+         */
+        private static long[] toRunCandidates(Collection<Long> encodedIndexes) {
+            return LongStream.concat(encodedIndexes.stream().mapToLong(Long::longValue),
+                LongStream.of(SENTINEL_INDEX)).toArray();
         }
 
         /**
@@ -1189,15 +1315,20 @@ public class CommentsIndentationCheck extends AbstractCheck {
                 blockIndexes.put(node, index);
             }
             final int lineNo = node.getLineNo();
-            int maxLineNo = lineNo;
+            final int childrenCount = node.getChildCount();
+            final int[] childIndexes = new int[childrenCount];
+            final long[] childrenMaxLineNos = new long[childrenCount];
+            int childrenMaxLineNo = Integer.MIN_VALUE;
             int child = index + 1;
-            DetailAST childNode = node.getFirstChild();
-            while (childNode != null) {
-                maxLineNo = Math.max(maxLineNo, nodes[child].subtreeMaxLineNo());
-                child = nodes[child].subtreeEnd();
-                childNode = childNode.getNextSibling();
+            for (int position = 0; position < childrenCount; position++) {
+                childrenMaxLineNo = Math.max(childrenMaxLineNo,
+                    nodes[child].getSubtreeMaxLineNo());
+                childIndexes[position] = child;
+                childrenMaxLineNos[position] = 2L * childrenMaxLineNo;
+                child = nodes[child].getSubtreeEnd();
             }
-            return new PreOrderNode(node, lineNo, child, maxLineNo);
+            return new PreOrderNode(node, childIndexes, childrenMaxLineNos, lineNo, child,
+                Math.max(lineNo, childrenMaxLineNo));
         }
 
         /**
@@ -1207,7 +1338,7 @@ public class CommentsIndentationCheck extends AbstractCheck {
          * @return the node.
          */
         private DetailAST getNode(int index) {
-            return nodes[index].node();
+            return nodes[index].getNode();
         }
 
         /**
@@ -1231,29 +1362,27 @@ public class CommentsIndentationCheck extends AbstractCheck {
             int end = getIndex(block);
             DetailAST node = block;
             while (node != null) {
-                end = nodes[end].subtreeEnd();
+                end = nodes[end].getSubtreeEnd();
                 node = node.getNextSibling();
             }
             return end;
         }
 
         /**
-         * Finds the first node, starting from the index, which is on the line or below.
-         * Such node always exists in the traverse which contains the comment on the line.
+         * Finds the first node in pre-order, starting from the node which starts a block,
+         * which is on the line or below. The block contains the comment on the line, so
+         * such node always exists in its subtree. A node above the line is skipped with its
+         * subtree when the subtree is above the line too, so the search descends to the first
+         * child whose subtree is not above the line.
          *
-         * @param start index to start search from.
+         * @param start index of the node which starts a block.
          * @param lineNo line number.
          * @return index of the found node.
          */
         private int getFirstNodeNotAbove(int start, int lineNo) {
             int index = start;
-            while (nodes[index].lineNo() < lineNo) {
-                if (nodes[index].subtreeMaxLineNo() < lineNo) {
-                    index = nodes[index].subtreeEnd();
-                }
-                else {
-                    index++;
-                }
+            while (nodes[index].getLineNo() < lineNo) {
+                index = nodes[index].getFirstChildNotAbove(lineNo);
             }
             return index;
         }
@@ -1277,27 +1406,135 @@ public class CommentsIndentationCheck extends AbstractCheck {
         }
 
         /**
-         * Finds the first node, starting from the index, whose token which begins the line
-         * is followed by a comment.
+         * Gets the nodes whose token which begins the line is followed by the run of comments
+         * which contains the comment.
          *
+         * @param comment the comment.
+         * @return encoded indexes of the nodes, sorted and ended with the sentinel.
+         */
+        private long[] getRunCandidates(DetailAST comment) {
+            return runCandidates.getOrDefault(runStarts.get(comment), EMPTY_RUN_CANDIDATES);
+        }
+
+        /**
+         * Finds the first node, starting from the index, whose token which begins the line
+         * is followed by a comment and which can be the previous statement of the comment.
+         *
+         * @param commentRunCandidates the nodes followed by the run which contains the comment.
          * @param from index to start search from.
+         * @param chainKey chain key of the comment.
          * @return index of the found node or index greater than index of any node.
          */
-        private int getNextCommentCandidate(int from) {
-            final int position = -Arrays.binarySearch(commentCandidates, 2L * from) - 1;
-            return decode(commentCandidates[position]);
+        private int getNextCommentCandidate(long[] commentRunCandidates, int from,
+                                            int chainKey) {
+            final int chainPosition = -Arrays.binarySearch(chainCandidates,
+                encodeLineCandidate(chainKey, 2L * from)) - 1;
+            int result = Integer.MAX_VALUE;
+            if (chainCandidates[chainPosition] >> INDEX_BITS == chainKey) {
+                result = decode(chainCandidates[chainPosition] & INDEX_MASK);
+            }
+            final int runPosition = -Arrays.binarySearch(commentRunCandidates, 2L * from) - 1;
+            return Math.min(result, decode(commentRunCandidates[runPosition]));
         }
 
         /**
          * Node of pre-order with information about its subtree.
-         *
-         * @param node the node.
-         * @param lineNo line number of the node.
-         * @param subtreeEnd index of the node which follows the subtree of the node.
-         * @param subtreeMaxLineNo maximal line number of the nodes in the subtree of the node.
          */
-        private record PreOrderNode(DetailAST node, int lineNo, int subtreeEnd,
-                                    int subtreeMaxLineNo) {
+        private static final class PreOrderNode {
+
+            /** The node. */
+            private final DetailAST node;
+
+            /** Line number of the node. */
+            private final int lineNo;
+
+            /** Index of the node which follows the subtree of the node. */
+            private final int subtreeEnd;
+
+            /** Maximal line number of the nodes in the subtree of the node. */
+            private final int subtreeMaxLineNo;
+
+            /** Indexes of the children of the node. */
+            private final int[] childIndexes;
+
+            /**
+             * Doubled maximal line numbers of the subtrees of the children, accumulated from
+             * the first child.
+             */
+            private final long[] childrenMaxLineNos;
+
+            /**
+             * Creates the node of pre-order.
+             *
+             * @param node the node.
+             * @param childIndexes indexes of the children of the node.
+             * @param childrenMaxLineNos doubled maximal line numbers of the subtrees of
+             *     the children, accumulated from the first child.
+             * @param lineNo line number of the node.
+             * @param subtreeEnd index of the node which follows the subtree of the node.
+             * @param subtreeMaxLineNo maximal line number of the nodes in the subtree.
+             */
+            private PreOrderNode(DetailAST node, int[] childIndexes, long[] childrenMaxLineNos,
+                                 int lineNo, int subtreeEnd, int subtreeMaxLineNo) {
+                this.node = node;
+                this.lineNo = lineNo;
+                this.subtreeEnd = subtreeEnd;
+                this.subtreeMaxLineNo = subtreeMaxLineNo;
+                this.childIndexes = childIndexes;
+                this.childrenMaxLineNos = childrenMaxLineNos;
+            }
+
+            /**
+             * Gets the node.
+             *
+             * @return the node.
+             */
+            private DetailAST getNode() {
+                return node;
+            }
+
+            /**
+             * Gets line number of the node.
+             *
+             * @return line number of the node.
+             */
+            private int getLineNo() {
+                return lineNo;
+            }
+
+            /**
+             * Gets index of the node which follows the subtree of the node.
+             *
+             * @return index of the node which follows the subtree.
+             */
+            private int getSubtreeEnd() {
+                return subtreeEnd;
+            }
+
+            /**
+             * Gets maximal line number of the nodes in the subtree of the node.
+             *
+             * @return maximal line number of the nodes in the subtree.
+             */
+            private int getSubtreeMaxLineNo() {
+                return subtreeMaxLineNo;
+            }
+
+            /**
+             * Finds the first child whose subtree is not above the line. Maximal line numbers
+             * of the children, accumulated from the first child, do not decrease, so the child
+             * is found by a binary search for an odd number among even numbers, which never
+             * matches exactly. Such child must exist.
+             *
+             * @param line line number.
+             * @return index of the child.
+             */
+            private int getFirstChildNotAbove(int line) {
+                final int position =
+                    -Arrays.binarySearch(childrenMaxLineNos, 2L * line - 1) - 1;
+                return childIndexes[position];
+            }
+
         }
 
     }

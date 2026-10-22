@@ -540,9 +540,9 @@ public class CommentsIndentationCheckTest extends AbstractModuleTestSupport {
     }
 
     /**
-     * Searching the previous statement of a comment in a class body used to evaluate every
-     * node of the class before the comment (including bodies of all previous methods), so
-     * this input took more than 30 seconds. Now it takes less than a second, the limit
+     * Searching the previous statement of a comment in a class body must neither evaluate
+     * every node of the class before the comment nor step over every previous member: this
+     * input took more than 30 seconds when it did. Now it takes about two seconds, the limit
      * leaves a wide margin for slow machines.
      *
      * @throws Exception if the input can not be parsed or checked.
@@ -565,7 +565,7 @@ public class CommentsIndentationCheckTest extends AbstractModuleTestSupport {
 
         assertWithMessage("Comments must be checked")
             .that(comments)
-            .hasSize(4000);
+            .hasSize(16_000);
         assertWithMessage("Comments must be correctly indented")
             .that(check.getViolations())
             .isEmpty();
@@ -575,14 +575,14 @@ public class CommentsIndentationCheckTest extends AbstractModuleTestSupport {
     }
 
     /**
-     * Creates a class with 1000 methods with correctly indented comments.
+     * Creates a class with 4000 methods with correctly indented comments.
      *
      * @return text of the class.
      */
     private static FileText createClassWithManyComments() {
         final List<String> lines = new ArrayList<>();
         lines.add("public class InputCommentsIndentationManyComments {");
-        for (int index = 0; index < 1000; index++) {
+        for (int index = 0; index < 4000; index++) {
             lines.add("    /**");
             lines.add("     * Method " + index + ".");
             lines.add("     */");
