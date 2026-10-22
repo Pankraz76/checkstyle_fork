@@ -23,10 +23,23 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static com.puppycrawl.tools.checkstyle.checks.indentation.CommentsIndentationCheck.MSG_KEY_BLOCK;
 import static com.puppycrawl.tools.checkstyle.checks.indentation.CommentsIndentationCheck.MSG_KEY_SINGLE;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.List;
+import java.util.stream.Stream;
+
 import org.junit.jupiter.api.Test;
 
 import com.puppycrawl.tools.checkstyle.AbstractModuleTestSupport;
 import com.puppycrawl.tools.checkstyle.DetailAstImpl;
+import com.puppycrawl.tools.checkstyle.JavaParser;
+import com.puppycrawl.tools.checkstyle.api.DetailAST;
+import com.puppycrawl.tools.checkstyle.api.FileContents;
+import com.puppycrawl.tools.checkstyle.api.FileText;
 import com.puppycrawl.tools.checkstyle.api.TokenTypes;
 import com.puppycrawl.tools.checkstyle.internal.utils.TestUtil;
 import com.puppycrawl.tools.checkstyle.utils.CommonUtil;
@@ -435,6 +448,103 @@ public class CommentsIndentationCheckTest extends AbstractModuleTestSupport {
         verifyWithInlineConfigParser(
             getPath("InputCommentsIndentationSwitchWhen.java"),
             expected);
+    }
+
+    /**
+     * Verifies that the previous statement of a comment found by the check is the same node
+     * as found by the plain pre-order traverse of the enclosing block, which evaluates every
+     * node, for every comment (including trailing ones) in all inputs of indentation checks.
+     * It guards optimizations of the search.
+     *
+     * @throws Exception if inputs can not be parsed or methods can not be invoked.
+     */
+    @Test
+    public void testPreviousStatementIsSameAsFoundByFullTraverse() throws Exception {
+        final List<Path> inputs;
+        try (Stream<Path> paths = Files.walk(Path.of(getPath("")).getParent())) {
+            inputs = paths.filter(path -> path.toString().endsWith(".java")).toList();
+        }
+        int commentsCount = 0;
+        for (Path input : inputs) {
+            final FileText fileText = new FileText(input.toFile(), StandardCharsets.UTF_8.name());
+            final DetailAST root = JavaParser.parseFileText(fileText,
+                JavaParser.Options.WITH_COMMENTS);
+            final CommentsIndentationCheck check = new CommentsIndentationCheck();
+            check.setFileContents(new FileContents(fileText));
+            check.beginTree(root);
+            for (DetailAST comment : getComments(root)) {
+                final DetailAST expected = findByFullTraverse(check, comment);
+                final DetailAST actual = TestUtil.invokeMethod(check,
+                    "getOneLinePreviousStatement", DetailAST.class, comment);
+                assertWithMessage("Previous statement of comment at %s:%s in %s",
+                        comment.getLineNo(), comment.getColumnNo(), input)
+                    .that(actual)
+                    .isSameInstanceAs(expected);
+                commentsCount++;
+            }
+        }
+        assertWithMessage("Inputs must contain comments")
+            .that(commentsCount)
+            .isGreaterThan(10_000);
+    }
+
+    /**
+     * Finds the previous statement of a comment by evaluating every node of the pre-order
+     * traverse of the enclosing block (and the siblings following it) until a node is found.
+     *
+     * @param check the check.
+     * @param comment the comment.
+     * @return the previous statement or null.
+     * @throws ReflectiveOperationException if methods can not be invoked.
+     */
+    private static DetailAST findByFullTraverse(CommentsIndentationCheck check, DetailAST comment)
+            throws ReflectiveOperationException {
+        DetailAST root = comment.getParent();
+        while (root != null && !isBlockStart(root)) {
+            root = root.getParent();
+        }
+        final Deque<DetailAST> stack = new ArrayDeque<>();
+        DetailAST previousStatement = null;
+        DetailAST node = root;
+        while (previousStatement == null && (node != null || !stack.isEmpty())) {
+            if (node == null) {
+                node = stack.pop();
+            }
+            previousStatement = TestUtil.invokeMethod(check, "findPreviousStatement",
+                DetailAST.class, comment, node);
+            if (node.getNextSibling() != null) {
+                stack.push(node.getNextSibling());
+            }
+            node = node.getFirstChild();
+        }
+        return previousStatement;
+    }
+
+    private static boolean isBlockStart(DetailAST ast) {
+        return ast.getType() == TokenTypes.SLIST
+            || ast.getType() == TokenTypes.OBJBLOCK
+            || ast.getType() == TokenTypes.ARRAY_INIT
+            || ast.getType() == TokenTypes.CASE_GROUP;
+    }
+
+    private static List<DetailAST> getComments(DetailAST root) {
+        final List<DetailAST> comments = new ArrayList<>();
+        final Deque<DetailAST> stack = new ArrayDeque<>();
+        stack.push(root);
+        while (!stack.isEmpty()) {
+            final DetailAST node = stack.pop();
+            if (node.getType() == TokenTypes.SINGLE_LINE_COMMENT
+                    || node.getType() == TokenTypes.BLOCK_COMMENT_BEGIN) {
+                comments.add(node);
+            }
+            if (node.getNextSibling() != null) {
+                stack.push(node.getNextSibling());
+            }
+            if (node.getFirstChild() != null) {
+                stack.push(node.getFirstChild());
+            }
+        }
+        return comments;
     }
 
 }
