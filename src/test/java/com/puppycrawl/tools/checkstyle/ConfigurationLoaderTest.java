@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Properties;
 
 import org.junit.jupiter.api.Test;
+import org.junitpioneer.jupiter.SetSystemProperty;
 import org.mockito.MockedConstruction;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
@@ -489,6 +490,24 @@ public class ConfigurationLoaderTest extends AbstractPathTestSupport {
         atts.setProperty("tabWidth", "4");
 
         verifyConfigNode(config, "Checker", 0, atts);
+    }
+
+    @Test
+    @SetSystemProperty(key = "checkstyle.enableExternalDtdLoad", value = "false")
+    public void testExternalDtdNotFetchedByDefault() throws Exception {
+        final Properties props = new Properties();
+        props.setProperty("checkstyle.basedir", "basedir");
+
+        final CheckstyleException ex = TestUtil.getExpectedThrowable(CheckstyleException.class,
+                () -> {
+                    loadConfiguration("InputConfigurationLoaderExternalDtdSsrf.xml", props);
+                });
+
+        // The external DTD referenced in the DOCTYPE must not be retrieved, otherwise a
+        // crafted configuration could cause SSRF or hang the build on an unresponsive host.
+        assertWithMessage("External DTD retrieval should be blocked by default")
+                .that(ex.getMessage())
+                .contains("accessExternalDTD");
     }
 
     @Test

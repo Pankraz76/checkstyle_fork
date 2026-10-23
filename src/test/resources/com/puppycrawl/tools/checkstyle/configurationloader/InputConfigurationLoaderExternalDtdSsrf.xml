@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE module SYSTEM "http://checkstyle-ssrf.invalid/external.dtd">
+
+<module name="Checker">
+    <property name="tabWidth" value="4" />
+</module>

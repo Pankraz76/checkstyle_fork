@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Map;
 
+import javax.xml.XMLConstants;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParserFactory;
 
@@ -119,6 +120,7 @@ public class XmlLoader
         LoadExternalDtdFeatureProvider.setFeaturesBySystemProperty(factory);
         factory.setValidating(true);
         final XMLReader xmlReader = factory.newSAXParser().getXMLReader();
+        LoadExternalDtdFeatureProvider.setAccessExternalDtdBySystemProperty(xmlReader);
         xmlReader.setContentHandler(handler);
         xmlReader.setEntityResolver(handler);
         xmlReader.setErrorHandler(handler);
@@ -144,6 +146,19 @@ public class XmlLoader
         public static final String EXTERNAL_PARAMETER_ENTITIES =
                 "http://xml.org/sax/features/external-parameter-entities";
 
+        /**
+         * Value of the {@link XMLConstants#ACCESS_EXTERNAL_DTD} property that restricts retrieval
+         * of external DTDs to the local {@code file} protocol only, blocking network protocols
+         * such as {@code http}, {@code https} and {@code ftp}.
+         */
+        private static final String LOCAL_FILE_ACCESS_ONLY = "file";
+
+        /**
+         * Value of the {@link XMLConstants#ACCESS_EXTERNAL_DTD} property that permits retrieval
+         * of external DTDs over any protocol.
+         */
+        private static final String ALL_EXTERNAL_ACCESS = "all";
+
         /** Stop instances being created. **/
         private LoadExternalDtdFeatureProvider() {
         }
@@ -161,12 +176,49 @@ public class XmlLoader
         public static void setFeaturesBySystemProperty(SAXParserFactory factory)
                 throws SAXException, ParserConfigurationException {
 
-            final boolean enableExternalDtdLoad = Boolean.parseBoolean(
-                System.getProperty(ENABLE_EXTERNAL_DTD_LOAD, "false"));
+            final boolean enableExternalDtdLoad = isExternalDtdLoadEnabled();
 
             factory.setFeature(LOAD_EXTERNAL_DTD, enableExternalDtdLoad);
             factory.setFeature(EXTERNAL_GENERAL_ENTITIES, enableExternalDtdLoad);
             factory.setFeature(EXTERNAL_PARAMETER_ENTITIES, enableExternalDtdLoad);
+        }
+
+        /**
+         * Checks whether external DTD loading is enabled via the
+         * {@link #ENABLE_EXTERNAL_DTD_LOAD} system property.
+         *
+         * @return {@code true} if external DTD loading is explicitly enabled
+         */
+        private static boolean isExternalDtdLoadEnabled() {
+            return Boolean.parseBoolean(
+                System.getProperty(ENABLE_EXTERNAL_DTD_LOAD, Boolean.FALSE.toString()));
+        }
+
+        /**
+         * Restricts retrieval of external DTDs over network protocols unless external DTD
+         * loading is explicitly enabled via the {@link #ENABLE_EXTERNAL_DTD_LOAD} system
+         * property. A validating parser fetches the DTD referenced in a {@code DOCTYPE}
+         * declaration even when {@link #LOAD_EXTERNAL_DTD} is disabled, so this restriction is
+         * required to prevent a crafted configuration, suppression or import-control file from
+         * making Checkstyle issue requests to arbitrary URLs (SSRF) or hang the build on an
+         * unresponsive host. Local {@code file} DTDs remain allowed, since the import-control
+         * loader supports them and they cannot be used to reach remote hosts. Configurations
+         * that reference the bundled Checkstyle DTD by its public id are unaffected, since that
+         * DTD is supplied by the entity resolver without any external access.
+         *
+         * @param xmlReader reader to be configured with the access restriction
+         * @throws SAXException if the property is not supported by the parser
+         */
+        public static void setAccessExternalDtdBySystemProperty(XMLReader xmlReader)
+                throws SAXException {
+            final String accessExternalDtd;
+            if (isExternalDtdLoadEnabled()) {
+                accessExternalDtd = ALL_EXTERNAL_ACCESS;
+            }
+            else {
+                accessExternalDtd = LOCAL_FILE_ACCESS_ONLY;
+            }
+            xmlReader.setProperty(XMLConstants.ACCESS_EXTERNAL_DTD, accessExternalDtd);
         }
 
     }
