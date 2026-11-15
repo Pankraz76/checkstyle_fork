@@ -445,9 +445,8 @@ public class JavaParserTest extends AbstractModuleTestSupport {
         final List<File> files = getGrammarInputs();
         final List<String> expected = printTrees(files, false);
         final int threads = 4;
-        final ExecutorService executor = Executors.newFixedThreadPool(threads);
 
-        try {
+        try (ExecutorService executor = Executors.newFixedThreadPool(threads)) {
             // when
             final Callable<List<String>> parsing = () -> printTrees(files, true);
             final List<Future<List<String>>> results = new ArrayList<>();
@@ -461,9 +460,6 @@ public class JavaParserTest extends AbstractModuleTestSupport {
                     .that(result.get())
                     .isEqualTo(expected);
             }
-        }
-        finally {
-            executor.shutdownNow();
         }
     }
 
