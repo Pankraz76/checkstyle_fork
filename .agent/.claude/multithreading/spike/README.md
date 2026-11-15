@@ -28,12 +28,12 @@ export LANG=C.UTF-8 LC_ALL=C.UTF-8
 ./mvnw -e --no-transfer-progress clean package -DskipTests -Passembly,no-validations
 cp target/checkstyle-*-all.jar /tmp/baseline.jar
 
-git apply .claude/multithreading/spike/spike.patch
+git apply .agent/.claude/multithreading/spike/spike.patch
 ./mvnw -e --no-transfer-progress clean package -DskipTests -Passembly,no-validations
 cp target/checkstyle-*-all.jar /tmp/spike.jar
 git checkout -- src
 
-python3 .claude/multithreading/spike/all-modules-config.py . /tmp/all.xml
+python3 .agent/.claude/multithreading/spike/all-modules-config.py . /tmp/all.xml
 FILES="src/main/java src/test/java src/it/java"
 
 java -jar /tmp/baseline.jar -c /tmp/all.xml -f xml -o /tmp/st.xml $FILES

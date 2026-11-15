@@ -5,7 +5,7 @@
 | Phase | 1 - Existing defects |
 | Kind | defect fix |
 | Depends on | nothing |
-| Issue | draft `.claude/multithreading/issues/suppress-warnings-stale-entries.md`, not filed |
+| Issue | draft `issues/suppress-warnings-stale-entries.md` of the topic, not filed |
 | Estimate | 5 hours in 5 tasks, plus the unit gate |
 | Claimed by | nobody |
 | Branch | none |

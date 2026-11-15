@@ -11,7 +11,7 @@ description: >-
 
 A large topic is never implemented in one go. It is analysed first, cut into very small pieces,
 and every piece is merged on its own. This file describes the generic procedure. Topic
-knowledge lives next to it, for example in `.claude/multithreading/`.
+knowledge lives next to it, for example in `.agent/.claude/multithreading/`.
 
 ## Vocabulary
 
@@ -58,7 +58,7 @@ session can continue from.
 - `<topic>/README.md`: verdict and reading order.
 - `<topic>/01-analysis.md` to `09-prompts.md`: the knowledge base, numbered in reading order:
   analysis, upstream history, design, decisions, findings, open questions, glossary,
-  scenarios, prompts. `.claude/README.md` lists what each one holds.
+  scenarios, prompts. `.agent/.claude/README.md` lists what each one holds.
 - `<topic>/STATUS.md`: read first, updated last. Holds what can start, the claims, a box for
   each phase and each unit, and a log.
 - `<topic>/plan/todo/phase-N-name/unit-N.M-name.md`: one file for each unit with its goal,
@@ -73,7 +73,7 @@ session can continue from.
 ## Notes and code never share a commit
 
 This folder exists only on the fork. Upstream pull requests must contain exactly one commit
-with code and nothing from `.claude/`.
+with code and nothing from `.agent/.claude/`.
 
 - Code of a unit is one commit. Ticks, status and learned notes are separate `doc:` commits.
 - The branch for an upstream pull request is cut from upstream `master` and receives only the

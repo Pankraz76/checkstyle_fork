@@ -5,7 +5,7 @@
 | Phase | 1 - Existing defects |
 | Kind | defect fix |
 | Depends on | nothing |
-| Issue | draft `.claude/multithreading/issues/translation-check-order.md`, not filed |
+| Issue | draft `issues/translation-check-order.md` of the topic, not filed |
 | Estimate | 3 hours in 3 tasks, plus the unit gate |
 | Claimed by | nobody |
 | Branch | none |

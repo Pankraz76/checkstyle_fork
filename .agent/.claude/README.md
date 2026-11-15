@@ -1,9 +1,12 @@
-# .claude
+# .agent/.claude
 
 Working notes, skills and plans for AI-assisted work on this fork. Nothing in this folder is
 part of the Checkstyle product and nothing here is meant to be sent upstream. The rules for
 building, testing and committing stay in `AGENTS.md`; this folder only adds topic knowledge
 and the way large topics are executed.
+
+The repository root has a symbolic link `.claude` that points to this folder, because Claude
+Code loads skills and `CLAUDE.md` only from there (decision A8 of the multi-threading topic).
 
 ## Layout
 

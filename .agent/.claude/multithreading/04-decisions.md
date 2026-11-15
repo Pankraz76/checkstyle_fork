@@ -55,11 +55,22 @@ replaces. Status is "accepted" (taken by the fork owner or in the analysis), "pr
 ### A6 - Notes and code never share a commit
 
 - Status: accepted as a proposal of the analysis session, to be confirmed by the fork owner.
-- Context: `.claude/` exists only on the fork; upstream wants one commit for each pull request.
+- Context: `.agent/.claude/` exists only on the fork; upstream wants one commit for each pull
+  request.
 - Decision: code of a unit is one commit; ticks, status and notes are separate `doc:` commits
   that stay on the fork.
 - Consequences: the branch for an upstream pull request is cut from upstream `master` and
   gets only the code commit.
+
+### A8 - The notes live in `.agent/.claude/`, with a link at `.claude`
+
+- Status: accepted, 2026-11-15, decided by the fork owner.
+- Context: the owner wants the folder at `.agent/.claude/`. Claude Code loads skills and
+  `CLAUDE.md` only from a folder named `.claude` in the repository root.
+- Decision: the content is in `.agent/.claude/`. The repository root holds a symbolic link
+  `.claude` that points to it. All documents use the path `.agent/.claude/`.
+- Consequences: without the link "let's go" and the session rules are not loaded on their
+  own. On a system that cannot create symbolic links the link has to be replaced by hand.
 
 ### A7 - No guard around the parser's cache clearing
 

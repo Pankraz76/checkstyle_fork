@@ -3,8 +3,9 @@ name: lets-go
 description: >-
   Continue a planned topic from where it stands. Use when the user says "let's go", "weiter",
   "continue", "mach weiter", "next task", "where are we" or asks for the status of a topic
-  that has a STATUS.md under .claude (for example .claude/multithreading). Finds the current
-  position in the plan folders, claims the next unit and executes its next open task.
+  that has a STATUS.md under .agent/.claude (for example .agent/.claude/multithreading).
+  Finds the current position in the plan folders, claims the next unit and executes its next
+  open task.
 ---
 
 # Let's go
@@ -14,7 +15,7 @@ does the next small step and leaves it in a correct state.
 
 ## Find the position
 
-- Topics are the folders under `.claude/` that contain a `STATUS.md`. If there is more than
+- Topics are the folders under `.agent/.claude/` that contain a `STATUS.md`. If there is more than
   one and the user named none, ask which.
 - Read `STATUS.md`, then list `plan/todo` and `plan/done`. If they disagree with `STATUS.md`,
   the folders are right: correct `STATUS.md` first and say so.

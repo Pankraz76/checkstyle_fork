@@ -44,8 +44,8 @@ APPROACH
    hours that each end green and start with a failing test.
 
 DELIVERABLES
-- .claude/ in the repository root: a workflow skill for large changes, a topic skill, and
-  under .claude/multithreading: analysis, upstream history, design, plan, scenarios, issue
+- .agent/.claude/ in the repository root: a workflow skill for large changes, a topic skill, and
+  under .agent/.claude/multithreading: analysis, upstream history, design, plan, scenarios, issue
   drafts, prompts and the spike with instructions to reproduce it.
 - One commit on the working branch and a draft pull request.
 
@@ -66,10 +66,11 @@ ROLE
 You are a senior Java engineer and Checkstyle contributor working test-first.
 
 CONTEXT
-Read first, in this order: AGENTS.md, .claude/skills/large-change-workflow/SKILL.md,
-.claude/skills/multithreading/SKILL.md, then in .claude/multithreading: README.md, STATUS.md,
-05-findings.md and 06-open-questions.md, then the file of unit <UNIT> under plan/todo and the
-parts of 03-design.md, 04-decisions.md and 08-scenarios.md it refers to.
+Read first, in this order: AGENTS.md, .agent/.claude/skills/large-change-workflow/SKILL.md,
+.agent/.claude/skills/multithreading/SKILL.md, then in .agent/.claude/multithreading:
+README.md, STATUS.md, 05-findings.md and 06-open-questions.md, then the file of unit <UNIT>
+under plan/todo and the parts of 03-design.md, 04-decisions.md and 08-scenarios.md it refers
+to.
 
 OBJECTIVE
 Deliver unit <UNIT> of the plan as one code commit and one draft pull request.
@@ -117,7 +118,7 @@ ROLE
 You are a reviewer who did not write the code.
 
 CONTEXT
-Read .claude/multithreading/03-design.md, 04-decisions.md, STATUS.md, 08-scenarios.md and the
+Read .agent/.claude/multithreading/03-design.md, 04-decisions.md, STATUS.md, 08-scenarios.md and the
 phase folder under plan.
 
 OBJECTIVE

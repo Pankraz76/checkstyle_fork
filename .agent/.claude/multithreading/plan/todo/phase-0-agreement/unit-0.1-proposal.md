@@ -5,7 +5,7 @@
 | Phase | 0 - Agreement |
 | Kind | coordination |
 | Depends on | nothing |
-| Issue | upstream 4409, text in `.claude/multithreading/issues/proposal.md` |
+| Issue | upstream 4409, text in `.agent/.claude/multithreading/issues/proposal.md` |
 | Estimate | 6 hours in 6 tasks, plus the unit gate |
 | Claimed by | nobody |
 | Branch | none |

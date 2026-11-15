@@ -16,6 +16,14 @@ turned out wrong instead of deleting it. Facts about the product code belong in
   JVM start. Clear it (`JAVA_TOOL_OPTIONS=`) when output is compared (2026-11-15).
 - Use a UTF-8 locale for every run over the test input folders; some file names are not ASCII
   (2026-11-15).
+- In a container that runs as root, `clean verify` fails in
+  `MainTest#testExistingTargetFileButWithoutReadAccess`: root can read a file after
+  `setReadable(false)`. Surefire then stops the build before the integration tests and the
+  static analysis. Exclude that one test to run the rest:
+  `-Dtest='!MainTest#testExistingTargetFileButWithoutReadAccess'`
+  `-Dsurefire.failIfNoSpecifiedTests=false` (2026-11-15).
+- The notification of a background command reports the exit code of the wrapper. Read the
+  real result from the log (`BUILD SUCCESS` or `BUILD FAILURE`) (2026-11-15).
 
 ## Measuring
 

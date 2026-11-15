@@ -26,7 +26,6 @@ of future multi-threading. With one instance for each worker that reason no long
 | O1 | Post the proposal on issue 4409 as it is, or shorten it first? | starts phase 0 |
 | O2 | File the two defect drafts now? | units 1.1 and 1.2 wait for `approved` |
 | O3 | Is the procedure of decision A6 (notes separate from code) how you work? | every unit |
-| O4 | Stay with `.claude/` or move this folder to another name? | skill discovery needs it |
 | O5 | Should fork `master` be synchronised with upstream before unit 0.1? | task T0.1.1 |
 | O6 | Where should code commits go when a session may push to one branch only? | see below |
 
@@ -51,6 +50,7 @@ create such branches themselves, they need the permission to push to them.
 | Id | What | Answer | Source |
 |---|---|---|---|
 | V5 | ANTLR contract for clearing the shared DFA cache | performance only, not accuracy | F7 |
+| O4 | Where the notes folder lives | `.agent/.claude/`, link at `.claude` | A8 |
 
 The source for V5 is `01-analysis.md`, section "F7 in detail", read from the ANTLR 4.13.2
 sources on 2026-11-15.

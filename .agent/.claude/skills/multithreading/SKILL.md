@@ -9,12 +9,13 @@ description: >-
 
 # Multi-threading in Checkstyle
 
-Read `.claude/multithreading/README.md` first (verdict and reading order), then `STATUS.md`
-(where the work stands). Then follow `.claude/skills/large-change-workflow/SKILL.md` for execution.
+The topic folder is `.agent/.claude/multithreading/`. Read its `README.md` first (verdict and
+reading order), then `STATUS.md` (where the work stands). Then follow the skill
+`large-change-workflow` for execution.
 
 ## Hard rules
 
-- Work only on a unit that `.claude/multithreading/STATUS.md` and the folder `plan/todo` allow
+- Work only on a unit that `STATUS.md` and the folder `plan/todo` of the topic allow
   (dependencies done, no claim of another branch). Do not skip phases.
 - The single-threaded path must stay byte-for-byte what it is today. One thread means the old
   code path, not the new one with a pool of size one.
