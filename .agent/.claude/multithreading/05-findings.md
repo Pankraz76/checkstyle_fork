@@ -87,6 +87,10 @@ turned out wrong instead of deleting it. Facts about the product code belong in
 
 ## Upstream research
 
+- GitHub keeps single line breaks in issue and pull request comments. The drafts under
+  `issues/` are wrapped at 100 characters for the lint, so join the lines of each paragraph
+  before posting, or the comment shows ragged lines (2026-11-15).
+
 - The GitHub search API reaches upstream issues: `gh api -X GET search/issues` with
   `repo:checkstyle/checkstyle is:issue <words>`. Comments are not included; read the issue
   pages for them (2026-11-15).
