@@ -8,8 +8,8 @@ is corrected.
 
 | Field | Value |
 |---|---|
-| Last finished | A.1 feasibility analysis and spike, 2026-11-15 |
-| Can start at once | 0.1 (owner posts the proposal), 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 2.1, 2.3 |
+| Last finished | 1.6 parser caches under concurrent parsing, 2026-11-15 |
+| Can start at once | 2.1, 2.3, 1.7 (no person needed); 0.1, 1.1, 1.2, 1.3, 1.4, 1.5 (owner first) |
 | Waiting for | phase 0 gate before any unit of phases 3 to 6 |
 | Audit commit | `9d82118` |
 
@@ -20,13 +20,13 @@ a unit that another branch has claimed.
 
 | Unit | Branch | Since |
 |---|---|---|
-| 1.6 | `claude/cool-brahmagupta-xtbfb2` | 2026-11-15 |
+| none | | |
 
 ## Phases
 
 - [x] A Analysis and spike (1 of 1 units)
 - [ ] 0 Agreement (0 of 1 units)
-- [ ] 1 Existing defects (0 of 7 units)
+- [ ] 1 Existing defects (1 of 7 units)
 - [ ] 2 Safety net (0 of 3 units)
 - [ ] 3 Prepare Checker (0 of 3 units)
 - [ ] 4 Parallel engine (0 of 6 units)
@@ -42,7 +42,7 @@ a unit that another branch has claimed.
 - [ ] 1.3 F3: marker of `JavadocLeadingAsteriskAlignCheck`
 - [ ] 1.4 F4: state reset in file-stateful checks (upstream issue 22175)
 - [ ] 1.5 F5: finish the open pull requests 22180, 22181, 22182
-- [ ] 1.6 F7: parser caches under concurrent parsing
+- [x] 1.6 F7: parser caches under concurrent parsing
 - [ ] 1.7 F8: `parallelStream()` inside `JavaAstVisitor`
 - [ ] 2.1 Recording listener
 - [ ] 2.2 File independence of all modules
@@ -71,4 +71,7 @@ Newest first. One line for each finished unit or decision.
 
 | Date | Event |
 |---|---|
+| 2026-11-15 | Unit 1.6 done: concurrent parsing gives the same trees, no guard needed (A7) |
+| 2026-11-15 | Folder moved to `.agent/.claude/`, link at `.claude` (decision A8) |
+| 2026-11-15 | Fork check "Check PR Description" fixed in `.ci/pr-description.sh` |
 | 2026-11-15 | Unit A.1 done: verdict feasible, prototype identical on 1,275 files |
