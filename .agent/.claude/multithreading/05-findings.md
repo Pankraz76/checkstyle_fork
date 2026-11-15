@@ -55,6 +55,12 @@ turned out wrong instead of deleting it. Facts about the product code belong in
 - All files outside `src/main` are checked by `config/checkstyle-non-main-files-checks.xml`:
   100 characters and a newline at the end. A `git diff` patch needs its `diff --git` lines and
   the text after `@@ ... @@` removed; `git apply` still accepts it (2026-11-15).
+- The fork's check "Check PR Description" failed on every pull request because
+  `.ci/pr-description.sh` asked the upstream repository for the pull request number of the
+  fork. Fixed on 2026-11-15 by reading the pull request from `$GITHUB_REPOSITORY`; issues are
+  still looked up upstream. The fix is a fork commit and has not been proposed upstream.
+- Shell scripts are linted with `shellcheck` and `.shellcheckrc`; `pip install shellcheck-py`
+  provides the binary (2026-11-15).
 - Upstream runs a spell check over all files (`.ci/test-spelling-unknown-words.sh`). It was not
   run for this folder, which is not meant to go upstream (2026-11-15).
 
