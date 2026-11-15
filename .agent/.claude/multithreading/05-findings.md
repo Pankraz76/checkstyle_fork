@@ -52,6 +52,14 @@ turned out wrong instead of deleting it. Facts about the product code belong in
 - `-XX:+UnlockExperimentalVMOptions -XX:hashCode=2` changes identity hash codes and exposes
   code that depends on `HashSet` order of objects without `equals` (2026-11-15).
 
+## Session set-up
+
+- Once `.claude/CLAUDE.md` exists, Claude Code stops loading `AGENTS.md` as project
+  instructions. Observed after a restart of the session on 2026-11-15. `CLAUDE.md` therefore
+  tells every session to read `AGENTS.md` first.
+- Skills and `CLAUDE.md` are found through the link `.claude`, which points to
+  `.agent/.claude`. Confirmed in the same session (2026-11-15).
+
 ## Repository rules that apply to this folder
 
 - Markdown is checked by `mdl -g .` with `config/markdownlint.rb`: 100 characters, also in
