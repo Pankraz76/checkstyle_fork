@@ -19,9 +19,16 @@ turned out wrong instead of deleting it. Facts about the product code belong in
 - In a container that runs as root, `clean verify` fails in
   `MainTest#testExistingTargetFileButWithoutReadAccess`: root can read a file after
   `setReadable(false)`. Surefire then stops the build before the integration tests and the
-  static analysis. Exclude that one test to run the rest:
-  `-Dtest='!MainTest#testExistingTargetFileButWithoutReadAccess'`
-  `-Dsurefire.failIfNoSpecifiedTests=false` (2026-11-15).
+  static analysis (2026-11-15).
+- Do not exclude that test with `-Dtest='!MainTest#...'`. `-Dtest` replaces the includes of
+  surefire, so surefire also runs the integration tests of `src/it`, which fail there with a
+  missing "Header mismatch" violation because only failsafe sets the header file properties
+  (151 failures in one run). Use an exclude file instead: a text file with the line
+  `MainTest#testExistingTargetFileButWithoutReadAccess` and
+  `-Dsurefire.excludesFile=<file>` (2026-11-15).
+- A failure that appears after changing how a build is started is first suspected to come
+  from that change. Run one failing test the documented way before blaming the code
+  (2026-11-15).
 - The notification of a background command reports the exit code of the wrapper. Read the
   real result from the log (`BUILD SUCCESS` or `BUILD FAILURE`) (2026-11-15).
 
