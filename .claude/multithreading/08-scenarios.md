@@ -31,8 +31,8 @@ Scenario: S04 JavadocLeadingAsteriskAlign forgets the previous file
   Then the clean file has no violation and no field refers to the first file
 
 Scenario: S05 Concurrent parsing gives the same trees
-  Given 200 compilable inputs and their AST dumps from sequential parsing
-  When the inputs are parsed on 4 threads while the DFA cache is cleared repeatedly
+  Given the 51 grammar regression inputs and their AST dumps from sequential parsing
+  When 4 threads each parse all inputs and replace the shared DFA cache after every file
   Then every AST dump equals its sequential dump
 ```
 

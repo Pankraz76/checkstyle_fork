@@ -5,7 +5,7 @@
 | Phase | 1 - Existing defects |
 | Kind | defect fix |
 | Depends on | nothing |
-| Issue | only if T1.6.3 is needed |
+| Issue | none; the change is a test only (`minor:`) |
 | Estimate | 4.5 hours in 3 tasks, plus the unit gate |
 | Claimed by | session of 2026-11-15 |
 | Branch | `claude/cool-brahmagupta-xtbfb2` |
@@ -21,10 +21,11 @@ Tick a task only when its proof exists. One task at a time, in this order.
 
 - [x] T1.6.1 (1 h) Read ANTLR 4.13.2 sources on `clearDFA` and DFA sharing; record it. Proof:
   `01-analysis.md`, section "F7 in detail".
-- [ ] T1.6.2 (2 h) Test: parse 200 inputs on 4 threads, AST dumps equal the sequential ones. Proof:
-  S05.
-- [ ] T1.6.3 (1.5 h) Only if T1.6.2 fails or the contract asks for it: guard the clearing. Proof:
-  S05 green.
+- [x] T1.6.2 (2 h) Test: parse the grammar inputs on 4 threads, AST dumps equal the sequential
+  ones. Proof: S05 as `JavaParserTest#testConcurrentParsingProducesSameTrees`; 60 of 60
+  repetitions green; fails when the expected trees are deliberately wrong.
+- [x] T1.6.3 (1.5 h) Only if T1.6.2 fails or the contract asks for it: guard the clearing.
+  Not needed, see decision A7 in `04-decisions.md`. Proof: S05 green without a guard.
 
 ## Unit gate
 

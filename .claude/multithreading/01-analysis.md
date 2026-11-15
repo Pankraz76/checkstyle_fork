@@ -178,6 +178,10 @@ F5 is covered by the open pull requests 22180, 22181 and 22182 of this fork's ow
 - What remains is Checkstyle's own `static int fileCounter` in `JavaLanguageParser.g4`. Two
   threads can lose an increment or both clear the cache. That costs time, not correctness.
 - The lexers and the Javadoc parser share their caches in the same way and never clear them.
+- Observed in unit 1.6: with four threads creating parsers with a limit of 0, one of 6,120
+  creations did not replace the cache, because another thread had just reset the counter.
+  The printed trees were identical in every run, also in 60 repetitions with about 12,000
+  replacements of the cache during parsing.
 
 ### F1 reproduction
 

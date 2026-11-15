@@ -50,6 +50,21 @@ turned out wrong instead of deleting it. Facts about the product code belong in
 - Upstream runs a spell check over all files (`.ci/test-spelling-unknown-words.sh`). It was not
   run for this folder, which is not meant to go upstream (2026-11-15).
 
+## Writing concurrency tests
+
+- Stress a new concurrency test before trusting it: change `@Test` to `@RepeatedTest(60)`
+  locally, run it once, change it back. A single green run of unit 1.6 hid a failure that
+  showed up in repetition 8 of 30 (2026-11-15).
+- An assertion inside a helper must not depend on production code that is racy by design.
+  The helper of unit 1.6 first relied on the parser's file counter to replace the cache;
+  calling `clearDFA()` directly made it deterministic (2026-11-15).
+- Read which assertion failed before concluding anything. The stress failure was the helper's
+  own check, not the comparison of trees (2026-11-15).
+- The test suite has no other test with an executor. Shut it down in `finally` and get every
+  `Future`, so that a failure on a worker reaches JUnit (2026-11-15).
+- New methods of a test class go before its inner types, or the self-check reports
+  `InnerTypeLast` (2026-11-15).
+
 ## Reading library sources
 
 - Sources of a dependency: `./mvnw -q dependency:get

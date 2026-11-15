@@ -28,6 +28,12 @@ of future multi-threading. With one instance for each worker that reason no long
 | O3 | Is the procedure of decision A6 (notes separate from code) how you work? | every unit |
 | O4 | Stay with `.claude/` or move this folder to another name? | skill discovery needs it |
 | O5 | Should fork `master` be synchronised with upstream before unit 0.1? | task T0.1.1 |
+| O6 | Where should code commits go when a session may push to one branch only? | see below |
+
+O6: the session of 2026-11-15 could push only to the notes branch. The test of unit 1.6 is
+therefore a separate `minor:` commit on that branch, next to the `doc:` commits. For upstream
+it has to be cherry-picked onto a branch cut from upstream `master`. If sessions should
+create such branches themselves, they need the permission to push to them.
 
 ## Not verified
 

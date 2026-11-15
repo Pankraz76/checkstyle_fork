@@ -61,6 +61,18 @@ replaces. Status is "accepted" (taken by the fork owner or in the analysis), "pr
 - Consequences: the branch for an upstream pull request is cut from upstream `master` and
   gets only the code commit.
 
+### A7 - No guard around the parser's cache clearing
+
+- Status: accepted, 2026-11-15 (unit 1.6).
+- Context: `JavaLanguageParser` counts parsed files in a plain `static int` and replaces the
+  shared DFA cache when the count passes a limit. ANTLR documents that replacing the cache
+  affects performance but not accuracy, and the code confirms it (`01-analysis.md`, "F7 in
+  detail"). Under four threads a replacement was skipped once in 6,120 attempts; trees were
+  always identical.
+- Decision: the counter and the clearing stay as they are. No `AtomicInteger`, no lock.
+- Consequences: with several threads the cache may be replaced a little later or twice in a
+  row. If memory measurements in unit 5.2 show a problem, this decision is revisited there.
+
 ## Open, for the maintainers
 
 ### D1 - How the number of threads is configured
