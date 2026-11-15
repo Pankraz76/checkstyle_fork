@@ -1,0 +1,362 @@
+--- a/src/main/java/com/puppycrawl/tools/checkstyle/Checker.java
++++ b/src/main/java/com/puppycrawl/tools/checkstyle/Checker.java
+@@ -26,8 +26,19 @@
+ import java.io.UnsupportedEncodingException;
+ import java.nio.charset.Charset;
+ import java.nio.charset.StandardCharsets;
++import java.util.ArrayDeque;
+ import java.util.ArrayList;
++import java.util.Deque;
++import java.util.IdentityHashMap;
+ import java.util.List;
++import java.util.Map;
++import java.util.concurrent.ArrayBlockingQueue;
++import java.util.concurrent.BlockingQueue;
++import java.util.concurrent.CyclicBarrier;
++import java.util.concurrent.ExecutionException;
++import java.util.concurrent.ExecutorService;
++import java.util.concurrent.Executors;
++import java.util.concurrent.Future;
+ import java.util.Locale;
+ import java.util.Set;
+ import java.util.SortedSet;
+@@ -55,6 +66,7 @@
+ import com.puppycrawl.tools.checkstyle.api.SeverityLevel;
+ import com.puppycrawl.tools.checkstyle.api.SeverityLevelCounter;
+ import com.puppycrawl.tools.checkstyle.api.Violation;
++import com.puppycrawl.tools.checkstyle.checks.SuppressWarningsHolder;
+ import com.puppycrawl.tools.checkstyle.utils.CommonUtil;
+ 
+ /**
+@@ -134,6 +146,17 @@
+     /** The tab width for column reporting. */
+     private int tabWidth = CommonUtil.DEFAULT_TAB_WIDTH;
+ 
++    // ---------------- SPIKE (throwaway) ----------------
++    /** SPIKE: configuration each FileSetCheck was created from. */
++    private final Map<FileSetCheck, Configuration> spikeConfigs = new IdentityHashMap<>();
++    /** SPIKE: number of worker threads. */
++    private final int spikeThreads = Integer.getInteger("checkstyle.spike.threads", 1);
++    /** SPIKE: replica (per-thread module trees) or naive (shared instances). */
++    private final String spikeMode = System.getProperty("checkstyle.spike.mode", "replica");
++    /** SPIKE: whether SuppressWarningsHolder state is carried to the coordinator. */
++    private final boolean spikeSnapshot =
++            !"false".equals(System.getProperty("checkstyle.spike.snapshot"));
++
+     /**
+      * Creates a new {@code Checker} instance.
+      * The instance needs to be contextualized and configured.
+@@ -273,6 +296,10 @@
+      */
+     // -@cs[CyclomaticComplexity] no easy way to split this logic of processing the file
+     private void processFiles(List<File> files) throws CheckstyleException {
++        if (spikeThreads > 1) {
++            spikeProcessFiles(files);
++            return;
++        }
+         for (final File file : files) {
+             String fileName = null;
+             final String filePath = file.getPath();
+@@ -313,6 +340,272 @@
+         }
+     }
+ 
++    // =====================================================================================
++    // SPIKE (throwaway): parallel file processing with ordered, single-threaded reporting.
++    // =====================================================================================
++
++    /** SPIKE: result of processing one file on a worker. */
++    private record SpikeResult(FileText text, SortedSet<Violation> messages,
++                               List<?> suppressWarnings, int failedIndex) {
++    }
++
++    /** SPIKE: file submitted to a worker. */
++    private record SpikePending(File file, String fileName, Future<SpikeResult> future) {
++    }
++
++    /**
++     * SPIKE: whether module must stay a single instance driven by the coordinating thread.
++     */
++    private static boolean spikeIsGlobal(FileSetCheck fsc) {
++        final Class<?> type = fsc.getClass();
++        return type.isAnnotationPresent(GlobalStatefulCheck.class)
++                || !type.isAnnotationPresent(StatelessCheck.class)
++                    && !type.isAnnotationPresent(FileStatefulCheck.class);
++    }
++
++    /** SPIKE: creates one more module tree out of the same configuration. */
++    private List<FileSetCheck> spikeCreatePipeline(List<Configuration> configs)
++            throws CheckstyleException {
++        final List<FileSetCheck> result = new ArrayList<>();
++        for (Configuration conf : configs) {
++            if (conf == null) {
++                result.add(null);
++                continue;
++            }
++            final Object child = moduleFactory.createModule(conf.getName());
++            final AbstractAutomaticBean bean = (AbstractAutomaticBean) child;
++            bean.contextualize(childContext);
++            bean.configure(conf);
++            final FileSetCheck fsc = (FileSetCheck) child;
++            fsc.init();
++            fsc.setMessageDispatcher(this);
++            fsc.beginProcessing(charset);
++            result.add(fsc);
++        }
++        return result;
++    }
++
++    /** SPIKE: parallel variant of processFiles. */
++    private void spikeProcessFiles(List<File> files) throws CheckstyleException {
++        final boolean naive = "naive".equals(spikeMode);
++        final List<FileSetCheck> globalChecks = new ArrayList<>();
++        final List<Configuration> localConfigs = new ArrayList<>();
++        for (FileSetCheck fsc : fileSetChecks) {
++            final Configuration conf = spikeConfigs.get(fsc);
++            // both lists are indexed by position in configuration, null means "not mine"
++            if (!naive && (conf == null || spikeIsGlobal(fsc))) {
++                globalChecks.add(fsc);
++                localConfigs.add(null);
++            }
++            else if (!naive) {
++                globalChecks.add(null);
++                localConfigs.add(conf);
++            }
++        }
++        // all module trees are created by the coordinating thread, before any worker starts
++        final BlockingQueue<List<FileSetCheck>> pipelines =
++                new ArrayBlockingQueue<>(spikeThreads);
++        for (int index = 0; index < spikeThreads; index++) {
++            if (naive) {
++                pipelines.add(fileSetChecks);
++            }
++            else {
++                pipelines.add(spikeCreatePipeline(localConfigs));
++            }
++        }
++        final ThreadLocal<List<FileSetCheck>> pipeline = new ThreadLocal<>();
++        final ExecutorService pool = Executors.newFixedThreadPool(spikeThreads, runnable -> {
++            final Thread thread = new Thread(runnable, "checkstyle-spike");
++            thread.setDaemon(true);
++            return thread;
++        });
++        final Deque<SpikePending> window = new ArrayDeque<>();
++        final int maxWindow = spikeThreads * 4;
++        try {
++            for (final File file : files) {
++                final String filePath = file.getPath();
++                final String fileName;
++                try {
++                    fileName = file.getAbsolutePath();
++                    final long timestamp = file.lastModified();
++                    if (cacheFile != null && cacheFile.isInCache(fileName, timestamp)
++                            || !acceptFileStarted(fileName)) {
++                        continue;
++                    }
++                    if (cacheFile != null) {
++                        cacheFile.put(fileName, timestamp);
++                    }
++                }
++                catch (Exception exc) {
++                    throw new CheckstyleException(
++                            getLocalizedMessage("Checker.processFilesException", filePath), exc);
++                }
++                window.add(new SpikePending(file, fileName, pool.submit(() -> {
++                    List<FileSetCheck> local = pipeline.get();
++                    if (local == null) {
++                        local = pipelines.take();
++                        pipeline.set(local);
++                    }
++                    return spikeProcessOnWorker(file, local);
++                })));
++                if (window.size() >= maxWindow) {
++                    spikeDrain(window.poll(), globalChecks);
++                }
++            }
++            while (!window.isEmpty()) {
++                spikeDrain(window.poll(), globalChecks);
++            }
++        }
++        finally {
++            for (SpikePending pending : window) {
++                pending.future().cancel(true);
++                if (cacheFile != null) {
++                    cacheFile.remove(pending.fileName());
++                }
++            }
++            if (!naive) {
++                spikeFinishWorkers(pool, pipeline);
++            }
++            pool.shutdownNow();
++        }
++    }
++
++    /** SPIKE: lets every worker thread finish and destroy its own module tree. */
++    private void spikeFinishWorkers(ExecutorService pool,
++            ThreadLocal<List<FileSetCheck>> pipeline) {
++        final CyclicBarrier barrier = new CyclicBarrier(spikeThreads);
++        final Object lock = new Object();
++        final List<Future<?>> futures = new ArrayList<>();
++        for (int index = 0; index < spikeThreads; index++) {
++            futures.add(pool.submit(() -> {
++                barrier.await();
++                final List<FileSetCheck> local = pipeline.get();
++                if (local != null) {
++                    synchronized (lock) {
++                        local.stream().filter(java.util.Objects::nonNull)
++                                .forEach(FileSetCheck::finishProcessing);
++                        local.stream().filter(java.util.Objects::nonNull)
++                                .forEach(FileSetCheck::destroy);
++                    }
++                }
++                return null;
++            }));
++        }
++        for (Future<?> future : futures) {
++            try {
++                future.get();
++            }
++            catch (InterruptedException | ExecutionException exc) {
++                throw new IllegalStateException(exc);
++            }
++        }
++    }
++
++    /** SPIKE: worker part, mirrors processFile for thread-confined modules. */
++    private SpikeResult spikeProcessOnWorker(File file, List<FileSetCheck> local)
++            throws CheckstyleException {
++        final SortedSet<Violation> fileMessages = new TreeSet<>();
++        FileText theText = null;
++        int failedIndex = Integer.MAX_VALUE;
++        int index = -1;
++        try {
++            theText = new FileText(file.getAbsoluteFile(), charset);
++            for (index = 0; index < local.size(); index++) {
++                final FileSetCheck fsc = local.get(index);
++                if (fsc != null) {
++                    fileMessages.addAll(fsc.process(file, theText));
++                }
++            }
++        }
++        catch (final IOException ioe) {
++            failedIndex = index;
++            fileMessages.add(new Violation(1,
++                    Definitions.CHECKSTYLE_BUNDLE, EXCEPTION_MSG,
++                    new String[] {ioe.getMessage()}, null, getClass(), null));
++        }
++        catch (Exception exc) {
++            if (haltOnException) {
++                throw exc;
++            }
++            failedIndex = index;
++            final StringWriter sw = new StringWriter();
++            final PrintWriter pw = new PrintWriter(sw, true);
++            exc.printStackTrace(pw);
++            fileMessages.add(new Violation(1,
++                    Definitions.CHECKSTYLE_BUNDLE, EXCEPTION_MSG,
++                    new String[] {sw.getBuffer().toString()},
++                    null, getClass(), null));
++        }
++        List<?> snapshot = null;
++        if (spikeSnapshot) {
++            snapshot = SuppressWarningsHolder.spikeSnapshot();
++        }
++        return new SpikeResult(theText, fileMessages, snapshot, failedIndex);
++    }
++
++    /** SPIKE: coordinator part, strictly in input order. */
++    private void spikeDrain(SpikePending pending, List<FileSetCheck> globalChecks)
++            throws CheckstyleException {
++        final String fileName = pending.fileName();
++        final String filePath = pending.file().getPath();
++        try {
++            try (FileAuditCompletion completion = new FileAuditCompletion(fileName)) {
++                final SpikeResult result;
++                try {
++                    result = pending.future().get();
++                }
++                catch (ExecutionException exc) {
++                    if (exc.getCause() instanceof Error error) {
++                        throw error;
++                    }
++                    throw (Exception) exc.getCause();
++                }
++                final SortedSet<Violation> fileMessages = result.messages();
++                if (result.text() != null) {
++                    try {
++                        // modules after the one that failed on the worker were never reached
++                        final int limit = Math.min(globalChecks.size(), result.failedIndex());
++                        for (int index = 0; index < limit; index++) {
++                            final FileSetCheck fsc = globalChecks.get(index);
++                            if (fsc != null) {
++                                fileMessages.addAll(
++                                        fsc.process(pending.file(), result.text()));
++                            }
++                        }
++                    }
++                    catch (Exception exc) {
++                        if (haltOnException) {
++                            throw exc;
++                        }
++                        final StringWriter sw = new StringWriter();
++                        exc.printStackTrace(new PrintWriter(sw, true));
++                        fileMessages.add(new Violation(1,
++                                Definitions.CHECKSTYLE_BUNDLE, EXCEPTION_MSG,
++                                new String[] {sw.getBuffer().toString()},
++                                null, getClass(), null));
++                    }
++                }
++                if (result.suppressWarnings() != null) {
++                    SuppressWarningsHolder.spikeRestore(result.suppressWarnings());
++                }
++                fireErrors(fileName, fileMessages);
++            }
++        }
++        catch (Exception exc) {
++            if (cacheFile != null) {
++                cacheFile.remove(fileName);
++            }
++            throw new CheckstyleException(
++                    getLocalizedMessage("Checker.processFilesException", filePath), exc);
++        }
++        catch (Error error) {
++            if (cacheFile != null) {
++                cacheFile.remove(fileName);
++            }
++            throw new Error(getLocalizedMessage("Checker.error", filePath), error);
++        }
++    }
++
+     /**
+      * Processes a file with all FileSetChecks.
+      *
+@@ -474,6 +767,7 @@
+             case FileSetCheck fsc -> {
+                 fsc.init();
+                 addFileSetCheck(fsc);
++                spikeConfigs.put(fsc, childConf);
+             }
+             case BeforeExecutionFileFilter filter -> addBeforeExecutionFileFilter(filter);
+             case Filter filter -> addFilter(filter);
+--- a/src/main/java/com/puppycrawl/tools/checkstyle/checks/SuppressWarningsHolder.java
++++ b/src/main/java/com/puppycrawl/tools/checkstyle/checks/SuppressWarningsHolder.java
+@@ -506,6 +506,19 @@
+         ENTRIES.remove();
+     }
+ 
++    /** SPIKE: copies suppressions of the calling thread. */
++    public static List<?> spikeSnapshot() {
++        return new ArrayList<>(ENTRIES.get());
++    }
++
++    /** SPIKE: installs suppressions into the calling thread. */
++    @SuppressWarnings("unchecked")
++    public static void spikeRestore(List<?> entries) {
++        final List<Entry> own = ENTRIES.get();
++        own.clear();
++        own.addAll((List<Entry>) entries);
++    }
++
+     /**
+      * Records a particular suppression for a region of a file.
+      *
