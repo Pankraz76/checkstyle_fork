@@ -27,13 +27,23 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
+import org.antlr.v4.runtime.CharStreams;
+import org.antlr.v4.runtime.CommonTokenStream;
+import org.antlr.v4.runtime.atn.ParserATNSimulator;
+import org.antlr.v4.runtime.dfa.DFA;
 import org.junit.jupiter.api.Test;
 
 import com.puppycrawl.tools.checkstyle.api.CheckstyleException;
 import com.puppycrawl.tools.checkstyle.api.DetailAST;
 import com.puppycrawl.tools.checkstyle.api.TokenTypes;
 import com.puppycrawl.tools.checkstyle.checks.javadoc.JavadocContentLocationCheck;
+import com.puppycrawl.tools.checkstyle.grammar.java.JavaLanguageLexer;
+import com.puppycrawl.tools.checkstyle.grammar.java.JavaLanguageParser;
 import com.puppycrawl.tools.checkstyle.internal.utils.TestUtil;
 
 public class JavaParserTest extends AbstractModuleTestSupport {
@@ -420,6 +430,87 @@ public class JavaParserTest extends AbstractModuleTestSupport {
         };
         verifyWithInlineConfigParser(
                 getPath("InputJavaParserHiddenComments4.java"), expected);
+    }
+
+    /**
+     * All parsers share the DFA cache of the generated parser, and the cache is replaced
+     * from time to time. Trees must not depend on which thread parses a file, nor on the
+     * cache being replaced while a file is parsed.
+     *
+     * @throws Exception if the test fails
+     */
+    @Test
+    public void testConcurrentParsingProducesSameTrees() throws Exception {
+        // given
+        final List<File> files = getGrammarInputs();
+        final List<String> expected = printTrees(files, false);
+        final int threads = 4;
+
+        try (ExecutorService executor = Executors.newFixedThreadPool(threads)) {
+            // when
+            final Callable<List<String>> parsing = () -> printTrees(files, true);
+            final List<Future<List<String>>> results = new ArrayList<>();
+            for (int index = 0; index < threads; index++) {
+                results.add(executor.submit(parsing));
+            }
+
+            // then
+            for (Future<List<String>> result : results) {
+                assertWithMessage("Trees of concurrent parsing differ from sequential parsing")
+                    .that(result.get())
+                    .isEqualTo(expected);
+            }
+        }
+    }
+
+    /**
+     * Lists the inputs of the grammar regression tests in a stable order.
+     *
+     * @return the Java files
+     */
+    private static List<File> getGrammarInputs() {
+        final File folder = new File(
+                "src/test/resources/com/puppycrawl/tools/checkstyle/grammar/antlr4");
+        final File[] inputs = folder.listFiles((dir, name) -> name.endsWith(".java"));
+        Arrays.sort(inputs);
+        return Arrays.asList(inputs);
+    }
+
+    /**
+     * Parses the files one after another and prints their trees.
+     *
+     * @param files the files to parse
+     * @param clearDfaCache whether to replace the shared DFA cache after each file
+     * @return the printed tree of each file
+     * @throws Exception if a file cannot be parsed
+     */
+    private static List<String> printTrees(List<File> files, boolean clearDfaCache)
+            throws Exception {
+        final List<String> trees = new ArrayList<>();
+        for (File file : files) {
+            trees.add(AstTreeStringPrinter.printFileAst(file,
+                    JavaParser.Options.WITH_COMMENTS));
+            if (clearDfaCache) {
+                clearSharedDfaCache();
+            }
+        }
+        return trees;
+    }
+
+    /**
+     * Replaces the DFA cache that all Java parsers share, as the parser does on creation
+     * after a number of parsed files.
+     */
+    private static void clearSharedDfaCache() {
+        final JavaLanguageLexer lexer = new JavaLanguageLexer(CharStreams.fromString(""), true);
+        final ParserATNSimulator simulator =
+                new JavaLanguageParser(new CommonTokenStream(lexer), Integer.MAX_VALUE)
+                    .getInterpreter();
+        final DFA before = simulator.decisionToDFA[0];
+        simulator.clearDFA();
+        assertWithMessage("Shared DFA cache should be replaced")
+            .that(simulator.decisionToDFA[0])
+            .isNotSameInstanceAs(before);
     }
 
     private static final class CountComments {

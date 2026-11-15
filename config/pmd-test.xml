@@ -188,10 +188,13 @@
   </rule>
   <rule ref="category/java/multithreading.xml/DoNotUseThreads">
     <properties>
-      <!-- We use thread to limit the stack size for a test method. -->
+      <!-- We use thread to limit the stack size for a test method.
+           JavaParserTest parses on several threads to prove that trees do not depend on it. -->
       <property name="violationSuppressXPath"
                value="//ClassDeclaration[@SimpleName='TestUtil']
-                        //MethodDeclaration[@Name='getResultWithLimitedResources']"/>
+                        //MethodDeclaration[@Name='getResultWithLimitedResources']
+                 | //ClassDeclaration[@SimpleName='JavaParserTest']
+                     //MethodDeclaration[@Name='testConcurrentParsingProducesSameTrees']"/>
     </properties>
   </rule>
 
