@@ -23,7 +23,9 @@ Tick a task only when its proof exists. One task at a time, in this order.
   `01-analysis.md`, section "F7 in detail".
 - [x] T1.6.2 (2 h) Test: parse the grammar inputs on 4 threads, AST dumps equal the sequential
   ones. Proof: S05 as `JavaParserTest#testConcurrentParsingProducesSameTrees`; 60 of 60
-  repetitions green; fails when the expected trees are deliberately wrong.
+  repetitions green; fails when the expected trees are deliberately wrong. After the fix for
+  PMD and Qodana (try-with-resources, PMD exception): 28 tests of the class green, 30 of 30
+  repetitions green, `pmd:check` green.
 - [x] T1.6.3 (1.5 h) Only if T1.6.2 fails or the contract asks for it: guard the clearing.
   Not needed, see decision A7 in `04-decisions.md`. Proof: S05 green without a guard.
 

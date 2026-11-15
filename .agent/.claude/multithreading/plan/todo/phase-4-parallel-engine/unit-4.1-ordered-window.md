@@ -6,7 +6,7 @@
 | Kind | new code |
 | Depends on | phase 0 gate |
 | Issue | to be written |
-| Estimate | 6 hours in 4 tasks, plus the unit gate |
+| Estimate | 7 hours in 5 tasks, plus the unit gate |
 | Claimed by | nobody |
 | Branch | none |
 | Pull request | none |
@@ -19,6 +19,8 @@ A small utility runs tasks on workers and returns results in submission order.
 
 Tick a task only when its proof exists. One task at a time, in this order.
 
+- [ ] T4.1.0 (1 h) Allow threads for the new classes in `config/pmd.xml` and for their tests
+  in `config/pmd-test.xml`, each with a comment. Proof: `clean test-compile pmd:check`.
 - [ ] T4.1.1 (1.5 h) Results come back in submission order. Proof: S09.
 - [ ] T4.1.2 (1.5 h) The bound of decision D4 is respected. Proof: S10.
 - [ ] T4.1.3 (1.5 h) First failure in order is rethrown, later work is cancelled. Proof: S11.

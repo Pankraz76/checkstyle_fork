@@ -44,7 +44,7 @@ Say "let's go". The skill `lets-go` finds the position and continues. By hand it
 | 1 | Existing order and state defects fixed | small fixes | 7 | 22 | 24 |
 | 2 | Safety net exists | tests only | 3 | 9 | 13.5 |
 | 3 | `Checker` prepared | refactoring only | 3 | 8 | 10 |
-| 4 | Parallel engine, not reachable by users | new code | 6 | 24 | 33.5 |
+| 4 | Parallel engine, not reachable by users | new code | 6 | 25 | 34.5 |
 | 5 | Verified on real projects, numbers published | scripts, CI | 3 | 9 | 13 |
 | 6 | Users can switch it on | property, CLI, Ant, docs | 5 | 11 | 16.5 |
 

@@ -85,6 +85,15 @@ turned out wrong instead of deleting it. Facts about the product code belong in
   `Future`, so that a failure on a worker reaches JUnit (2026-11-15).
 - New methods of a test class go before its inner types, or the self-check reports
   `InnerTypeLast` (2026-11-15).
+- An `ExecutorService` must be opened in try-with-resources. PMD (`CloseResource`) and the
+  Qodana job on GitHub (`AutoCloseableResource`) both reject `shutdownNow()` in `finally`
+  (2026-11-15).
+- PMD forbids threads. `config/pmd-test.xml` has `DoNotUseThreads` for tests; a test that
+  needs threads is added to its `violationSuppressXPath` with a comment. `config/pmd.xml`
+  enables the whole `multithreading` category for main code, so the engine of phase 4 needs
+  entries there as well (2026-11-15).
+- The targeted test and the self-check are not enough before pushing code. Run
+  `clean test-compile pmd:check` too; PMD only runs late in `clean verify` (2026-11-15).
 
 ## Reading library sources
 

@@ -227,6 +227,16 @@ Upstream issue 8963 reported the same symptom in 2020 and was closed as fixed in
 8967). The current code has `HashSet` for files and bundles, so the defect is back or was only
 partly fixed. What pull 8967 changed was not read.
 
+## Static analysis rules that touch this feature
+
+- `config/pmd.xml` enables the PMD category `multithreading` for main code. Only
+  `UseConcurrentHashMap` is excluded, with the comment "Checkstyle is not thread safe till"
+  and a link to the old GitHub project. `DoNotUseThreads`, `AvoidUsingVolatile` and the rest
+  are active, so executors and threads in `Checker` will be reported.
+- `config/pmd-test.xml` enables `DoNotUseThreads` for tests, with exceptions listed by class
+  and method.
+- The Qodana job reports an `ExecutorService` that is not opened in try-with-resources.
+
 ## Limits of this analysis
 
 - Both reproductions used a jar built from `master`, not the latest release. Re-run them with
