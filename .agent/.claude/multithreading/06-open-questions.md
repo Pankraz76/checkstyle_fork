@@ -44,6 +44,7 @@ create such branches themselves, they need the permission to push to them.
 | V4 | Third-party checks and filters | decision D2, not planned |
 | V6 | Both defect reproductions against the latest release | task T0.1.3 |
 | V7 | Whether upstream's spell check accepts this folder | not planned, fork only |
+| V8 | What pull 8967 changed in `TranslationCheck` and when it was undone | task T1.2.1 |
 
 ## Answered
 

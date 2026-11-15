@@ -223,6 +223,10 @@ Starting audit...
 `tr.xml` is `Translation` with `requiredTranslations=sq`. The 19 violations are the same, their
 order follows a `HashSet` of objects without `equals` and `hashCode`.
 
+Upstream issue 8963 reported the same symptom in 2020 and was closed as fixed in 8.38 (pull
+8967). The current code has `HashSet` for files and bundles, so the defect is back or was only
+partly fixed. What pull 8967 changed was not read.
+
 ## Limits of this analysis
 
 - Both reproductions used a jar built from `master`, not the latest release. Re-run them with

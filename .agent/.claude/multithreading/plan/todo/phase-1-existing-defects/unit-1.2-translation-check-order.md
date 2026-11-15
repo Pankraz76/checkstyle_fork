@@ -19,7 +19,8 @@
 
 Tick a task only when its proof exists. One task at a time, in this order.
 
-- [ ] T1.2.1 (0.5 h) File `issues/translation-check-order.md`, wait for `approved`. Proof: link.
+- [ ] T1.2.1 (0.5 h) Read what pull 8967 changed (issue 8963), then file
+  `issues/translation-check-order.md` with that reference, wait for `approved`. Proof: link.
 - [ ] T1.2.2 (1.5 h) Failing test: 20 bundles, reports must follow input order. Proof: S03 red.
 - [ ] T1.2.3 (1 h) Keep insertion order for bundles and files. Proof: S03 green.
 

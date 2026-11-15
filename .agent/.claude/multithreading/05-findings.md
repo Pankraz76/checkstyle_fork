@@ -84,5 +84,8 @@ turned out wrong instead of deleting it. Facts about the product code belong in
 - The GitHub search API reaches upstream issues: `gh api -X GET search/issues` with
   `repo:checkstyle/checkstyle is:issue <words>`. Comments are not included; read the issue
   pages for them (2026-11-15).
+- Search upstream for an existing issue before drafting a new one, also among closed issues.
+  The draft for the `TranslationCheck` order was written before issue 8963 was found
+  (2026-11-15).
 - Long issue timelines are collapsed on the page. Two timelines (issues 4869 and 22175) were
   only partly read (2026-11-15).

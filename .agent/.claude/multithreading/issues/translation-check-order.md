@@ -4,6 +4,12 @@ For `checkstyle/checkstyle`, bug report template. Before filing, replace the out
 of the latest release jar (the output below is from a build of `master` at `9d82118`, with
 paths shortened to `...`) and add the output of `java -version`.
 
+Related upstream issue: 8963 "Nondeterministic order of error messages in Translation check",
+closed as completed in 8.38 by pull 8967. Its description says the check stored the input
+files in a `HashSet` and that the fix used a `TreeSet`. The current code uses `HashSet` for the
+files and for the bundles, so the order is undefined again. Mention 8963 in the new issue. Not
+verified: what exactly pull 8967 changed and when that was undone.
+
 ## Text
 
 Title: TranslationCheck reports violations in an order that depends on JVM identity hashes
@@ -51,3 +57,5 @@ Actual: `TranslationCheck.groupFilesIntoBundles` collects bundles in a `HashSet`
 class `ResourceBundle` does not override `equals` and `hashCode`, so the iteration order follows
 identity hash codes. It is stable only as long as the JVM hands out the same identity hashes,
 which is not guaranteed between JVM versions, flags or embedding applications.
+
+This looks like a return of #8963, which was closed in 8.38.

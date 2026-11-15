@@ -18,6 +18,7 @@ entries that were not read.
 | 2019 | Clone service and MT Checker closed: no agreement on the design | pulls 4882, 4890 |
 | 2019 | "Checkstyle is single thread tool now", topic postponed | issues 4957, 7253 |
 | 2020 | CLI options `-C` and `-W` removed in 8.32 | issue 8181 |
+| 2020 | `TranslationCheck` output order reported and fixed in 8.38 | issue 8963, pull 8967 |
 | 2026 | Every file-stateful check must reset state in `beginTree` | issue 22175 |
 | 2026 | Review on this fork owner's pull request asks for stateless checks | pull 22133 |
 
