@@ -37,10 +37,14 @@ of future multi-threading. With one instance for each worker that reason no long
 | V2 | More than four cores | unit 5.2 |
 | V3 | Memory use with several module trees | unit 5.2 |
 | V4 | Third-party checks and filters | decision D2, not planned |
-| V5 | ANTLR contract for clearing the shared DFA cache during parsing | unit 1.6 |
 | V6 | Both defect reproductions against the latest release | task T0.1.3 |
 | V7 | Whether upstream's spell check accepts this folder | not planned, fork only |
 
 ## Answered
 
-Nothing yet.
+| Id | What | Answer | Source |
+|---|---|---|---|
+| V5 | ANTLR contract for clearing the shared DFA cache | performance only, not accuracy | F7 |
+
+The source for V5 is `01-analysis.md`, section "F7 in detail", read from the ANTLR 4.13.2
+sources on 2026-11-15.

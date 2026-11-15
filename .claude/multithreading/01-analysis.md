@@ -155,13 +155,29 @@ Not a benchmark: one machine, one corpus, wall time of whole JVM runs.
 | F4 | File-stateful checks without `beginTree` reset | hygiene | upstream issue 22175 |
 | F5 | `PropertyCacheFile` shares a static buffer; `destroy` skipped on failure | leak | own PRs |
 | F6 | `XpathFileGeneratorAstFilter` fills a static map while filtering | race in MT | source |
-| F7 | `fileCounter` is a plain static `int`; `clearDFA` on a shared cache | race in MT | grammar |
+| F7 | `fileCounter` is a plain static `int`; `clearDFA` on a shared cache | benign | below |
 | F8 | `parallelStream()` inside the parser | oversubscription | source |
 | F9 | Dead thread-mode plumbing (`ThreadModeSettings` and friends) | clean-up | source |
 
-F5 is covered by the open pull requests 22180, 22181 and 22182 of this fork's owner. For F7,
-ANTLR documents that clearing the DFA cache may affect the performance but not the accuracy of
-other parsers; this statement was recalled from the ANTLR Javadoc and is not verified here.
+F5 is covered by the open pull requests 22180, 22181 and 22182 of this fork's owner.
+
+### F7 in detail (verified in the ANTLR 4.13.2 sources, unit 1.6)
+
+- `ATNSimulator.clearDFA` is documented as: "Since the DFA cache may be shared by multiple ATN
+  simulators, this method may affect the performance (but not accuracy) of other parsers
+  which are being used concurrently."
+- `ParserATNSimulator.clearDFA` replaces each element of the shared array with a new `DFA`,
+  without a lock. `adaptivePredict` reads the element once into a local variable and uses that
+  object for the whole prediction, so a parser works with the old `DFA` or with the new one,
+  never with a mixture.
+- A `DFA` can be published this way: its fields are `final` (`states`, `decision`,
+  `atnStartState`, `precedenceDfa`) or `volatile` (`s0`).
+- Updates of a shared `DFA` are locked as the class comment "THREAD SAFETY" describes:
+  `addDFAState` locks `dfa.states`, `addDFAEdge` locks the source state, and
+  `getCachedContext` locks the shared context cache.
+- What remains is Checkstyle's own `static int fileCounter` in `JavaLanguageParser.g4`. Two
+  threads can lose an increment or both clear the cache. That costs time, not correctness.
+- The lexers and the Javadoc parser share their caches in the same way and never clear them.
 
 ### F1 reproduction
 

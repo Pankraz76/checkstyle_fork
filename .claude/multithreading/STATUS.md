@@ -20,7 +20,7 @@ a unit that another branch has claimed.
 
 | Unit | Branch | Since |
 |---|---|---|
-| none | | |
+| 1.6 | `claude/cool-brahmagupta-xtbfb2` | 2026-11-15 |
 
 ## Phases
 

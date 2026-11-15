@@ -50,6 +50,12 @@ turned out wrong instead of deleting it. Facts about the product code belong in
 - Upstream runs a spell check over all files (`.ci/test-spelling-unknown-words.sh`). It was not
   run for this folder, which is not meant to go upstream (2026-11-15).
 
+## Reading library sources
+
+- Sources of a dependency: `./mvnw -q dependency:get
+  -Dartifact=org.antlr:antlr4-runtime:4.13.2:jar:sources`, then unzip the jar from
+  `~/.m2/repository` (2026-11-15).
+
 ## Upstream research
 
 - The GitHub search API reaches upstream issues: `gh api -X GET search/issues` with

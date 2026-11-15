@@ -7,8 +7,8 @@
 | Depends on | nothing |
 | Issue | only if T1.6.3 is needed |
 | Estimate | 4.5 hours in 3 tasks, plus the unit gate |
-| Claimed by | nobody |
-| Branch | none |
+| Claimed by | session of 2026-11-15 |
+| Branch | `claude/cool-brahmagupta-xtbfb2` |
 | Pull request | none |
 
 ## Goal
@@ -19,7 +19,8 @@ It is proven that concurrent parsing gives the same trees (finding F7).
 
 Tick a task only when its proof exists. One task at a time, in this order.
 
-- [ ] T1.6.1 (1 h) Read ANTLR 4.13.2 sources on `clearDFA` and DFA sharing; record it. Proof: note.
+- [x] T1.6.1 (1 h) Read ANTLR 4.13.2 sources on `clearDFA` and DFA sharing; record it. Proof:
+  `01-analysis.md`, section "F7 in detail".
 - [ ] T1.6.2 (2 h) Test: parse 200 inputs on 4 threads, AST dumps equal the sequential ones. Proof:
   S05.
 - [ ] T1.6.3 (1.5 h) Only if T1.6.2 fails or the contract asks for it: guard the clearing. Proof:
